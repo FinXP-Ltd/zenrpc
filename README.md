@@ -1,4 +1,4 @@
-# zenrcp forked 
+# Additions / Changes
 
   * added clinet generation
   * added ability to use aliased struct types
@@ -12,7 +12,7 @@ install using
 
 ```sh
  go install zenrpc/*.go           
-``
+```
 
 # zenrpc: JSON-RPC 2.0 Server Implementation with SMD support
 
