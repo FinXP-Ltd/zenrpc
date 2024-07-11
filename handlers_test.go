@@ -21,7 +21,7 @@ func TestServer_ServeHTTPWithHeaders(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(rpc.ServeHTTP))
 	defer ts.Close()
 
-	var tc = []struct {
+	tc := []struct {
 		h string
 		s int
 	}{
@@ -55,57 +55,73 @@ func TestServer_ServeHTTP(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(rpc.ServeHTTP))
 	defer ts.Close()
 
-	var tc = []struct {
+	tc := []struct {
 		in, out string
 	}{
 		{
 			in:  `{"jsonrpc": "2.0", "method": "arith.divide", "params": { "a": 1, "b": 24 }, "id": 1 }`,
-			out: `{"jsonrpc":"2.0","id":1,"result":{"Quo":0,"rem":1}}`},
+			out: `{"jsonrpc":"2.0","id":1,"result":{"Quo":0,"rem":1}}`,
+		},
 		{
 			in:  `{"jsonrpc": "2.0", "method": "arith.divide", "params": [ 1, 24 ], "id": 1 }`,
-			out: `{"jsonrpc":"2.0","id":1,"result":{"Quo":0,"rem":1}}`},
+			out: `{"jsonrpc":"2.0","id":1,"result":{"Quo":0,"rem":1}}`,
+		},
 		{
 			in:  `{"jsonrpc": "2.0", "method": "arith.divide", "params": { "a": 1, "b": 0 }, "id": 1 }`,
-			out: `{"jsonrpc":"2.0","id":1,"error":{"code":-32603,"message":"divide by zero"}}`},
+			out: `{"jsonrpc":"2.0","id":1,"error":{"code":-32603,"message":"divide by zero"}}`,
+		},
 		{
 			in:  `{"jsonrpc": "2.0", "method": "Arith.Divide", "params": { "a": 1, "b": 1 }, "id": "1" }`,
-			out: `{"jsonrpc":"2.0","id":"1","error":{"code":401,"message":"we do not serve 1"}}`},
+			out: `{"jsonrpc":"2.0","id":"1","error":{"code":401,"message":"we do not serve 1"}}`,
+		},
 		{
 			in:  `{"jsonrpc": "2.0", "method": "arith.multiply", "params": { "a": 3, "b": 2 }, "id": 0 }`,
-			out: `{"jsonrpc":"2.0","id":0,"result":6}`},
+			out: `{"jsonrpc":"2.0","id":0,"result":6}`,
+		},
 		{
 			in:  `{"jsonrpc": "2.0", "method": "multiply", "params": { "a": 4, "b": 2 }, "id": 0 }`,
-			out: `{"jsonrpc":"2.0","id":0,"result":8}`},
+			out: `{"jsonrpc":"2.0","id":0,"result":8}`,
+		},
 		{
 			in:  `{"jsonrpc": "2.0", "method": "arith.pow", "params": { "base": 3, "exp": 3 }, "id": 0 }`,
-			out: `{"jsonrpc":"2.0","id":0,"result":27}`},
+			out: `{"jsonrpc":"2.0","id":0,"result":27}`,
+		},
 		{
 			in:  `{"jsonrpc": "2.0", "method": "arith.sum", "params": { "a": 3, "b": 3 }, "id": 1 }`,
-			out: `{"jsonrpc":"2.0","id":1,"error":{"code":6,"message":"` + ts.Listener.Addr().String() + `"}}`},
+			out: `{"jsonrpc":"2.0","id":1,"error":{"code":6,"message":"` + ts.Listener.Addr().String() + `"}}`,
+		},
 		{
 			in:  `{"jsonrpc": "2.0", "method": "arith.pow", "params": { "base": 3 }, "id": 0 }`,
-			out: `{"jsonrpc":"2.0","id":0,"result":9}`},
+			out: `{"jsonrpc":"2.0","id":0,"result":9}`,
+		},
 		{
 			in:  `{"jsonrpc": "2.0", "method": "arith.pow", "params": [ 3 ], "id": 0 }`,
-			out: `{"jsonrpc":"2.0","id":0,"result":9}`},
+			out: `{"jsonrpc":"2.0","id":0,"result":9}`,
+		},
 		{
 			in:  `{"jsonrpc": "2.0", "method": "arith.pow", "params": [ 3, 3 ], "id": 0 }`,
-			out: `{"jsonrpc":"2.0","id":0,"result":27}`},
+			out: `{"jsonrpc":"2.0","id":0,"result":27}`,
+		},
 		{
 			in:  `{"jsonrpc": "2.0", "method": "arith.pi", "id": 0 }`,
-			out: `{"jsonrpc":"2.0","id":0,"result":3.141592653589793}`},
+			out: `{"jsonrpc":"2.0","id":0,"result":3.141592653589793}`,
+		},
 		{
 			in:  `{"jsonrpc": "2.0", "method": "arith.checkerror", "id": 0, "params": [ false ] }`,
-			out: `{"jsonrpc":"2.0","id":0,"result":null}`},
+			out: `{"jsonrpc":"2.0","id":0,"result":null}`,
+		},
 		{
 			in:  `{"jsonrpc": "2.0", "method": "arith.checkerror", "id": 0, "params": [ true ] }`,
-			out: `{"jsonrpc":"2.0","id":0,"error":{"code":-32603,"message":"test"}}`},
+			out: `{"jsonrpc":"2.0","id":0,"error":{"code":-32603,"message":"test"}}`,
+		},
 		{
 			in:  `{"jsonrpc": "2.0", "method": "arith.checkzenrpcerror", "id": 0, "params": [ false ] }`,
-			out: `{"jsonrpc":"2.0","id":0,"result":null}`},
+			out: `{"jsonrpc":"2.0","id":0,"result":null}`,
+		},
 		{
 			in:  `{"jsonrpc": "2.0", "method": "arith.checkzenrpcerror", "id": 0, "params": [ true ] }`,
-			out: `{"jsonrpc":"2.0","id":0,"error":{"code":500,"message":"test"}}`},
+			out: `{"jsonrpc":"2.0","id":0,"error":{"code":500,"message":"test"}}`,
+		},
 	}
 
 	for _, c := range tc {
@@ -130,35 +146,41 @@ func TestServer_ServeHTTPNotifications(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(rpc.ServeHTTP))
 	defer ts.Close()
 
-	var tc = []struct {
+	tc := []struct {
 		in, out string
 	}{
 		{
 			in:  `{"jsonrpc": "2.0", "method": "arith.divide", "params": { "a": 1, "b": 24 }}`,
-			out: ``},
+			out: ``,
+		},
 		{
 			// should be empty even with error
 			in:  `{"jsonrpc": "2.0", "method": "arith.divide", "params": { "a": 1, "b": 0 }}`,
-			out: ``},
+			out: ``,
+		},
 		{
 			// but parse errors should be displayed
 			in:  `{"jsonrpc": "1.0", "method": "Arith.Divide", "params": { "a": 1, "b": 1 }`,
-			out: `{"jsonrpc":"2.0","id":null,"error":{"code":-32700,"message":"Parse error"}}`},
+			out: `{"jsonrpc":"2.0","id":null,"error":{"code":-32700,"message":"Parse error"}}`,
+		},
 		{
 			// in batch requests notifications should not be listed in response
 			in: `[{"jsonrpc": "2.0", "method": "arith.multiply", "params": { "a": 3, "b": 2 }, "id": 0 },
 				   {"jsonrpc": "2.0", "method": "arith.pow", "params": { "base": 2, "exp": 2 } }]`,
-			out: `[{"jsonrpc":"2.0","id":0,"result":6}]`},
+			out: `[{"jsonrpc":"2.0","id":0,"result":6}]`,
+		},
 		{
 			// order doesn't matter
 			in: `[{"jsonrpc": "2.0", "method": "arith.multiply", "params": { "a": 3, "b": 2 } },
 				   {"jsonrpc": "2.0", "method": "arith.pow", "params": { "base": 2, "exp": 2 }, "id": 0 }]`,
-			out: `[{"jsonrpc":"2.0","id":0,"result":4}]`},
+			out: `[{"jsonrpc":"2.0","id":0,"result":4}]`,
+		},
 		{
 			// all notifications
 			in: `[{"jsonrpc": "2.0", "method": "arith.multiply", "params": { "a": 3, "b": 2 } },
 				   {"jsonrpc": "2.0", "method": "arith.pow", "params": { "base": 2, "exp": 2 }}]`,
-			out: ``},
+			out: ``,
+		},
 	}
 
 	for _, c := range tc {
@@ -183,7 +205,7 @@ func TestServer_ServeHTTPBatch(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(rpc.ServeHTTP))
 	defer ts.Close()
 
-	var tc = []struct {
+	tc := []struct {
 		in  string
 		out []string
 	}{
@@ -196,7 +218,9 @@ func TestServer_ServeHTTPBatch(t *testing.T) {
 			out: []string{
 				`{"jsonrpc":"2.0","id":1,"result":9}`,
 				`{"jsonrpc":"2.0","id":0,"result":6}`,
-				`{"jsonrpc":"2.0","id":2,"result":4}`}},
+				`{"jsonrpc":"2.0","id":2,"result":4}`,
+			},
+		},
 		{
 			// one of the requests errored
 			in: `[{"jsonrpc": "2.0", "method": "arith.multiply1", "params": { "a": 3, "b": 2 }, "id": 0 },
@@ -206,7 +230,9 @@ func TestServer_ServeHTTPBatch(t *testing.T) {
 			out: []string{
 				`{"jsonrpc":"2.0","id":1,"result":9}`,
 				`{"jsonrpc":"2.0","id":0,"error":{"code":-32601,"message":"Method not found"}}`,
-				`{"jsonrpc":"2.0","id":2,"result":4}`}},
+				`{"jsonrpc":"2.0","id":2,"result":4}`,
+			},
+		},
 		{
 			// to much batch requests
 			in: `[{"jsonrpc": "2.0", "method": "arith.multiply1", "params": { "a": 3, "b": 2 }, "id": 0 },
@@ -216,7 +242,9 @@ func TestServer_ServeHTTPBatch(t *testing.T) {
 				  {"jsonrpc": "2.0", "method": "arith.pow", "params": { "a": 2, "b": 3 } },
 				  {"jsonrpc": "2.0", "method": "arith.pow", "params": { "base": 2, "exp": 2 }, "id": 2 }]`,
 			out: []string{
-				`{"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"Invalid Request","data":"max requests length in batch exceeded"}}`}},
+				`{"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"Invalid Request","data":"max requests length in batch exceeded"}}`,
+			},
+		},
 	}
 
 	for _, c := range tc {
@@ -255,26 +283,30 @@ func TestServer_ServeHTTPWithErrors(t *testing.T) {
 	tsHid := httptest.NewServer(http.HandlerFunc(rpcHiddenErrorField.ServeHTTP))
 	defer tsHid.Close()
 
-	var tc = []struct {
+	tc := []struct {
 		url     string
 		in, out string
 	}{
 		{
 			url: ts.URL,
 			in:  `{"jsonrpc": "2.0", "method": "multiple1", "id": 1 }`,
-			out: `{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"Method not found"}}`},
+			out: `{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"Method not found"}}`,
+		},
 		{
 			url: ts.URL,
 			in:  `{"jsonrpc": "2.0", "method": "test.multiple1", "id": 1 }`,
-			out: `{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"Method not found"}}`},
+			out: `{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"Method not found"}}`,
+		},
 		{
 			url: ts.URL,
 			in:  `{"jsonrpc": "2.0", "method": "foobar, "params": "bar", "baz]`,
-			out: `{"jsonrpc":"2.0","id":null,"error":{"code":-32700,"message":"Parse error"}}`},
+			out: `{"jsonrpc":"2.0","id":null,"error":{"code":-32700,"message":"Parse error"}}`,
+		},
 		{
 			url: ts.URL,
 			in:  `{"jsonrpc": "2.0", "params": { "a": 1, "b": 0 }, "id": 1 }`,
-			out: `{"jsonrpc":"2.0","id":1,"error":{"code":-32600,"message":"Invalid Request"}}`},
+			out: `{"jsonrpc":"2.0","id":1,"error":{"code":-32600,"message":"Invalid Request"}}`,
+		},
 		{
 			url: ts.URL,
 			in:  `{"jsonrpc": "2.0", "method": 1, "params": "bar"}`,
@@ -332,30 +364,35 @@ func TestServer_Extensions(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(server.ServeHTTP))
 	defer ts.Close()
 
-	var tc = []struct {
+	tc := []struct {
 		url     string
 		in, out string
 	}{
 		{
 			url: ts.URL,
 			in:  `{"jsonrpc": "2.0", "method": "multiple1", "id": 1 }`,
-			out: `{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"Method not found"}}`},
+			out: `{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"Method not found"}}`,
+		},
 		{
 			url: ts.URL,
 			in:  `{"jsonrpc": "2.0", "method": "arith.divide", "params": { "a": 1, "b": 24 }}`,
-			out: ``},
+			out: ``,
+		},
 		{
 			url: ts.URL,
 			in:  `{"jsonrpc": "2.0", "method": "arith.divide", "params": { "a": 1, "b": 24 }, "id": 1 }`,
-			out: `{"jsonrpc":"2.0","id":1,"result":{"Quo":0,"rem":1},"extensions":{"debug":"true"}}`},
+			out: `{"jsonrpc":"2.0","id":1,"result":{"Quo":0,"rem":1},"extensions":{"debug":"true"}}`,
+		},
 		{
 			url: ts.URL,
 			in:  `{"jsonrpc": "2.0", "method": "arith.multiply", "params": { "a": 1, "b": 24 }, "id": 1 }`,
-			out: `{"jsonrpc":"2.0","id":1,"result":24}`},
+			out: `{"jsonrpc":"2.0","id":1,"result":24}`,
+		},
 		{
 			url: ts.URL,
 			in:  `{"jsonrpc": "2.0", "method": "arith.checkerror", "params": [ true ], "id": 1 }`,
-			out: `{"jsonrpc":"2.0","id":1,"error":{"code":-32603,"message":"test"},"extensions":{"debug":"true"}}`},
+			out: `{"jsonrpc":"2.0","id":1,"error":{"code":-32603,"message":"test"},"extensions":{"debug":"true"}}`,
+		},
 	}
 
 	for _, c := range tc {
@@ -389,33 +426,41 @@ func TestServer_ServeWS(t *testing.T) {
 	}
 	defer ws.Close()
 
-	var tc = []struct {
+	tc := []struct {
 		in, out string
 	}{
 		{
 			in:  `{"jsonrpc": "2.0", "method": "arith.divide", "params": { "a": 1, "b": 24 }, "id": 1 }`,
-			out: `{"jsonrpc":"2.0","id":1,"result":{"Quo":0,"rem":1}}`},
+			out: `{"jsonrpc":"2.0","id":1,"result":{"Quo":0,"rem":1}}`,
+		},
 		{
 			in:  `{"jsonrpc": "2.0", "method": "arith.divide", "params": { "a": 1, "b": 0 }, "id": 1 }`,
-			out: `{"jsonrpc":"2.0","id":1,"error":{"code":-32603,"message":"divide by zero"}}`},
+			out: `{"jsonrpc":"2.0","id":1,"error":{"code":-32603,"message":"divide by zero"}}`,
+		},
 		{
 			in:  `{"jsonrpc": "2.0", "method": "Arith.Divide", "params": { "a": 1, "b": 1 }, "id": "1" }`,
-			out: `{"jsonrpc":"2.0","id":"1","error":{"code":401,"message":"we do not serve 1"}}`},
+			out: `{"jsonrpc":"2.0","id":"1","error":{"code":401,"message":"we do not serve 1"}}`,
+		},
 		{
 			in:  `{"jsonrpc": "2.0", "method": "arith.multiply", "params": { "a": 3, "b": 2 }, "id": 0 }`,
-			out: `{"jsonrpc":"2.0","id":0,"result":6}`},
+			out: `{"jsonrpc":"2.0","id":0,"result":6}`,
+		},
 		{
 			in:  `{"jsonrpc": "2.0", "method": "multiply", "params": { "a": 4, "b": 2 }, "id": 0 }`,
-			out: `{"jsonrpc":"2.0","id":0,"result":8}`},
+			out: `{"jsonrpc":"2.0","id":0,"result":8}`,
+		},
 		{
 			in:  `{"jsonrpc": "2.0", "method": "arith.pow", "params": { "base": 3, "exp": 3 }, "id": 0 }`,
-			out: `{"jsonrpc":"2.0","id":0,"result":27}`},
+			out: `{"jsonrpc":"2.0","id":0,"result":27}`,
+		},
 		{
 			in:  `{"jsonrpc": "2.0", "method": "arith.sum", "params": { "a": 3, "b": 3 }, "id": 1 }`,
-			out: `{"jsonrpc":"2.0","id":1,"error":{"code":6,"message":"` + ts.Listener.Addr().String() + `"}}`},
+			out: `{"jsonrpc":"2.0","id":1,"error":{"code":6,"message":"` + ts.Listener.Addr().String() + `"}}`,
+		},
 		{
 			in:  `{"jsonrpc": "2.0", "method": "arith.pow", "params": { "base": 3 }, "id": 0 }`,
-			out: `{"jsonrpc":"2.0","id":0,"result":9}`},
+			out: `{"jsonrpc":"2.0","id":0,"result":9}`,
+		},
 	}
 
 	for _, c := range tc {

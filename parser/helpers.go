@@ -2,11 +2,12 @@ package parser
 
 import (
 	"fmt"
-	"github.com/thoas/go-funk"
 	"go/ast"
-	"golang.org/x/tools/go/packages"
 	"path"
 	"strings"
+
+	"github.com/thoas/go-funk"
+	"golang.org/x/tools/go/packages"
 )
 
 type PackageFiles struct {
@@ -50,7 +51,6 @@ func GetDependenciesAstFiles(filename string) ([]PackageFiles, error) {
 		if _, ok := done[pkg.PkgPath]; ok {
 			continue
 		}
-
 		pfs = append(pfs, PackageFiles{
 			PackagePath: pkg.PkgPath,
 			PackageName: pkg.Name,

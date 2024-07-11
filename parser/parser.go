@@ -12,21 +12,71 @@ import (
 	"unicode/utf8"
 )
 
+// https://pkg.go.dev/builtin#Type
+var builtInTypes = [...]string{
+	"ComplexType", "FloatType", "IntegerType", "Type", "Type1", "any", "bool", "byte",
+	"comparable", "complex128", "complex64", "error", "float32", "float64", "int", "int16",
+	"int32", "int64", "int8", "rune", "string", "uint", "uint16", "uint32", "uint64", "uint8", "uintptr",
+}
+
+func isBuiltInType(t string) bool {
+	t = strings.TrimPrefix(t, "*")
+	t = strings.TrimPrefix(t, "...")
+	t = strings.TrimSuffix(t, "...")
+	t = strings.TrimPrefix(t, "[]")
+
+	for _, bt := range builtInTypes {
+		if t == bt || t == "*"+bt || t == "[]"+bt || t == "..."+bt || t == bt+"..." {
+			return true
+		}
+	}
+	return false
+}
+
+func cleanDescription(s string) string {
+	// s = strings.Replace(s, `"`, `\"`, -1)
+	s = strings.Replace(s, "`", "", -1)
+	return strings.TrimSpace(strings.TrimPrefix(s, "//zenrpc:"))
+}
+
+var stPrefix = regexp.MustCompile(`^([^a-zA-Z]+)(.*)$`)
+
+func toSType(t, pkgName string) string {
+	if isBuiltInType(t) {
+		return t
+	}
+
+	if strings.Contains(t, ".") {
+		return t
+	}
+
+	matches := stPrefix.FindStringSubmatch(t)
+	if len(matches) >= 3 {
+		prefix := matches[1]
+		suffix := matches[2]
+		return prefix + pkgName + "." + suffix
+	}
+	return pkgName + "." + t
+}
+
 const (
 	GenerateFileSuffix = "_zenrpc.go"
 
-	zenrpcComment     = "//zenrpc"
-	zenrpcService     = "zenrpc.Service"
-	contextTypeName   = "context.Context"
-	errorTypeName     = "zenrpc.Error"
-	testFileSuffix    = "_test.go"
-	goFileSuffix      = ".go"
-	zenrpcMagicPrefix = "//zenrpc:"
+	zenrpcComment          = "//zenrpc"
+	zenrpcCommentWithSpace = "// zenrpc"
+	zenrpcService          = "zenrpc.Service"
+	contextTypeName        = "context.Context"
+	errorTypeName          = "zenrpc.Error"
+	testFileSuffix         = "_test.go"
+	goFileSuffix           = ".go"
+	zenrpcMagicPrefix      = "//zenrpc:"
 )
 
-var errorCommentRegexp = regexp.MustCompile("^(-?\\d+)\\s*(.*)$")
-var returnCommentRegexp = regexp.MustCompile("return\\s*(.*)")
-var argumentCommentRegexp = regexp.MustCompile("([^=( ]+)\\s*(\\(\\s*([^ )]+)\\s*\\))?(\\s*=\\s*((`([^`]+)`)|([^ ]+)))?\\s*(.*)")
+var (
+	errorCommentRegexp    = regexp.MustCompile(`^(-?\\d+)\\s*(.*)$`)
+	returnCommentRegexp   = regexp.MustCompile(`return\\s*(.*)`)
+	argumentCommentRegexp = regexp.MustCompile("([^=( ]+)\\s*(\\(\\s*([^ )]+)\\s*\\))?(\\s*=\\s*((`([^`]+)`)|([^ ]+)))?\\s*(.*)")
+)
 
 // PackageInfo represents struct info for XXX_zenrpc.go file generation
 type PackageInfo struct {
@@ -48,6 +98,7 @@ type PackageInfo struct {
 type Service struct {
 	GenDecl     *ast.GenDecl
 	Name        string
+	AliasName   string
 	Methods     []*Method
 	Description string
 }
@@ -57,13 +108,41 @@ type Method struct {
 	Name          string
 	LowerCaseName string
 	HasContext    bool
-	Args          []Arg
+	Args          Args
 	DefaultValues map[string]DefaultValue
-	Returns       []Return
+	Returns       Returns
 	SMDReturn     *SMDReturn // return for generate smd schema; pointer for nil check
 	Description   string
 
 	Errors []SMDError // errors for documentation in SMD
+}
+
+func (m Method) JSONName() string {
+	return lowerFirst(m.Name)
+}
+
+func (m Method) ArgsWihtoutContext() Args {
+	if m.HasContext {
+		return m.Args[1:]
+	}
+	return m.Args
+}
+
+func (m Method) Source() string {
+	return fmt.Sprintf("%s(%s) %s", m.Name, m.Args.Source(), m.Returns.Source())
+}
+
+func (m Method) ReturnSource() string {
+	if len(m.Returns) > 0 {
+		r := m.Returns[0]
+		if r.Type == "error" {
+			return ""
+		}
+
+		return strings.Replace(r.SType, "*", "", 1)
+	}
+
+	return ""
 }
 
 type DefaultValue struct {
@@ -77,17 +156,64 @@ type DefaultValue struct {
 type Arg struct {
 	Name            string
 	Type            string
+	SType           string // type with start and package name if neeeed
 	CapitalName     string
 	JsonName        string
 	HasStar         bool
 	HasDefaultValue bool
+	Ellipsis        bool
 	Description     string // from magic comment
 	SMDType         SMDType
 }
 
+func (a Arg) IsOptional() bool {
+	return a.HasDefaultValue || a.HasStar || a.Ellipsis
+}
+
+func (a Arg) STypeWithoutEllipsis() string {
+	return strings.Replace(a.SType, "...", "[]", 1)
+}
+
+func (a Arg) TypeWithoutEllipsis() string {
+	if a.Ellipsis {
+		return strings.Replace(a.Type, "...", "[]", 1)
+	}
+	return a.Type
+}
+
+type Args []Arg
+
+// returns as appred in the source code
+func (a Args) Source() string {
+	var args []string
+	for _, arg := range a {
+		args = append(args, arg.JsonName+" "+arg.SType)
+	}
+	return strings.Join(args, ", ")
+}
+
 type Return struct {
-	Name string
-	Type string
+	Name  string
+	Type  string
+	SType string // type with start and package name if neeeed
+}
+
+type Returns []Return
+
+func (r Returns) HasStar() bool {
+	if len(r) == 0 {
+		return false
+	}
+	return strings.HasPrefix(r[0].SType, "*")
+}
+
+func (r Returns) Source() string {
+	var returns []string
+
+	for _, ret := range r {
+		returns = append(returns, ret.SType)
+	}
+	return "(" + strings.Join(returns, ", ") + ")"
 }
 
 type SMDReturn struct {
@@ -205,6 +331,9 @@ func (pi *PackageInfo) collectImportsForGeneratedCode() {
 }
 
 func (pi *PackageInfo) collectServices(f *ast.File) {
+	// StructName -> AliasName
+	aliasName := ""
+
 	for _, decl := range f.Decls {
 		gdecl, ok := decl.(*ast.GenDecl)
 		if !ok || gdecl.Tok != token.TYPE {
@@ -217,22 +346,30 @@ func (pi *PackageInfo) collectServices(f *ast.File) {
 				continue
 			}
 
+			// Handle type aliases
+			var isAlias bool
+			var ident *ast.Ident
+			if ident, isAlias = spec.Type.(*ast.Ident); isAlias {
+				aliasName = ident.Name
+			}
+
 			if !ast.IsExported(spec.Name.Name) {
 				continue
 			}
 
 			structType, ok := spec.Type.(*ast.StructType)
-			if !ok {
+			if !isAlias && !ok {
 				continue
 			}
 
 			// check that struct is our zenrpc struct
-			if hasZenrpcComment(spec) || hasZenrpcService(structType) {
+			if hasZenrpcComment(spec) || hasZenrpcCommentInCommentGroup(gdecl.Doc) || (structType != nil && hasZenrpcService(structType)) {
 				pi.Services = append(pi.Services, &Service{
 					GenDecl:     gdecl,
 					Name:        spec.Name.Name,
+					AliasName:   aliasName,
 					Methods:     []*Method{},
-					Description: parseCommentGroup(spec.Doc),
+					Description: cleanDescription(parseCommentGroup(spec.Doc)),
 				})
 			}
 		}
@@ -253,7 +390,7 @@ func (pi *PackageInfo) parseMethods(f *ast.File) error {
 			Args:          []Arg{},
 			DefaultValues: make(map[string]DefaultValue),
 			Returns:       []Return{},
-			Description:   parseCommentGroup(fdecl.Doc),
+			Description:   cleanDescription(parseCommentGroup(fdecl.Doc)),
 			Errors:        []SMDError{},
 		}
 
@@ -333,6 +470,10 @@ func (pi PackageInfo) OutputFilename() string {
 	return filepath.Join(pi.Dir, pi.PackageName+GenerateFileSuffix)
 }
 
+func (pi PackageInfo) OutputFilenameClient(fn string) string {
+	return filepath.Join(pi.Dir, "jrpc2", pi.PackageName+fn)
+}
+
 // HasErrorVariable define adding err variable to generated Invoke function
 func (s Service) HasErrorVariable() bool {
 	for _, m := range s.Methods {
@@ -403,7 +544,7 @@ func (m *Method) parseArguments(pi *PackageInfo, fdecl *ast.FuncDecl, serviceNam
 
 		if typeName == contextTypeName {
 			m.HasContext = true
-			continue // not add context to arg list
+			// continue // not add context to arg list
 		}
 
 		hasStar := hasStar(typeName) // check for pointer
@@ -429,12 +570,21 @@ func (m *Method) parseArguments(pi *PackageInfo, fdecl *ast.FuncDecl, serviceNam
 
 		// parse names
 		for _, name := range field.Names {
+			var elip bool
+			if strings.HasPrefix(typeName, "...") {
+				smdType = strings.TrimPrefix(smdType, "...")
+				itemType = smdType
+				elip = true
+			}
+
 			m.Args = append(m.Args, Arg{
 				Name:        name.Name,
+				SType:       toSType(typeName, pi.PackageName),
 				Type:        typeName,
 				CapitalName: strings.Title(name.Name),
 				JsonName:    lowerFirst(name.Name),
 				HasStar:     hasStar,
+				Ellipsis:    elip,
 				SMDType: SMDType{
 					Type:      smdType,
 					ItemsType: itemType,
@@ -470,7 +620,7 @@ func (m *Method) parseReturns(pi *PackageInfo, fdecl *ast.FuncDecl, serviceNames
 		// parse type
 		typeName := parseType(field.Type)
 		if typeName == "" {
-			return fmt.Errorf("Can't parse type of return value in %s on position %d", methods(), len(m.Returns)+1)
+			return fmt.Errorf("can't parse type of return value in %s on position %d", methods(), len(m.Returns)+1)
 		}
 
 		var fieldName string
@@ -480,8 +630,9 @@ func (m *Method) parseReturns(pi *PackageInfo, fdecl *ast.FuncDecl, serviceNames
 		}
 
 		m.Returns = append(m.Returns, Return{
-			Type: typeName,
-			Name: fieldName,
+			SType: toSType(typeName, pi.PackageName),
+			Type:  typeName,
+			Name:  fieldName,
 		})
 
 		if typeName == "error" || typeName == errorTypeName || typeName == "*"+errorTypeName {
@@ -542,7 +693,7 @@ func (m *Method) parseComments(doc *ast.CommentGroup, pi *PackageInfo) {
 			name, alias, hasDefault, defaultValue, description := parseArgumentComment(line)
 			for i, a := range m.Args {
 				if a.Name == name {
-					m.Args[i].Description = description
+					m.Args[i].Description = cleanDescription(description)
 
 					if hasDefault {
 						m.DefaultValues[name] = DefaultValue{
@@ -562,7 +713,7 @@ func (m *Method) parseComments(doc *ast.CommentGroup, pi *PackageInfo) {
 				}
 			}
 		case "return":
-			m.SMDReturn.Description = parseReturnComment(line)
+			m.SMDReturn.Description = cleanDescription(parseReturnComment(line))
 		case "error":
 			code, description := parseErrorComment(line)
 			m.Errors = append(m.Errors, SMDError{code, description})
@@ -647,7 +798,7 @@ func parseCommentGroup(doc *ast.CommentGroup) string {
 		}
 		result += strings.TrimSpace(strings.TrimPrefix(comment.Text, "//"))
 	}
-
+	// remove ` in case a filde with a tag gets parsed as a comment
 	return result
 }
 
@@ -668,6 +819,8 @@ func parseType(expr ast.Expr) string {
 	case *ast.BasicLit:
 		// for array size
 		return v.Value
+	case *ast.Ellipsis:
+		return "..." + parseType(v.Elt)
 	default:
 		return ""
 	}
@@ -678,6 +831,10 @@ func parseSMDType(expr ast.Expr) (string, string) {
 	switch v := expr.(type) {
 	case *ast.StarExpr:
 		return parseSMDType(v.X)
+	case *ast.Ellipsis:
+		// return string.TrimPrefix("...")
+		at := (v.Elt).(*ast.Ident).Name
+		return "Array", at
 	case *ast.SelectorExpr, *ast.MapType, *ast.InterfaceType:
 		return "Object", ""
 	case *ast.ArrayType:
@@ -752,10 +909,22 @@ func parseStruct(expr ast.Expr) *Struct {
 }
 
 func hasZenrpcComment(spec *ast.TypeSpec) bool {
-	if spec.Comment != nil && len(spec.Comment.List) > 0 && spec.Comment.List[0].Text == zenrpcComment {
+	if spec.Comment != nil && len(spec.Comment.List) > 0 && (spec.Comment.List[0].Text == zenrpcComment || spec.Comment.List[0].Text == zenrpcCommentWithSpace) {
 		return true
 	}
 
+	return false
+}
+
+// hasZenrpcCommentInCommentGroup checks if the provided comment group contains the   comment
+func hasZenrpcCommentInCommentGroup(cg *ast.CommentGroup) bool {
+	if cg != nil {
+		for _, comment := range cg.List {
+			if comment.Text == zenrpcComment || comment.Text == zenrpcCommentWithSpace {
+				return true
+			}
+		}
+	}
 	return false
 }
 
