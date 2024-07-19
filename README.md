@@ -14,7 +14,7 @@ It's built on top of `go generate` instead of reflection.
   * added clinet generation
   * added ability to use aliased struct types
   * added templates 
-  * added client generation
+  
 
 
 ## Install
